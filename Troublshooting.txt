@@ -1,0 +1,2 @@
+#IF Give Error About export 
+export KOPS_STATE_STORE=s3://Kunal-kops-1625.k8s.local
