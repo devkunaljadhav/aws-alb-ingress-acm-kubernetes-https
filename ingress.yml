@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: insurance-ingress
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: instance
+    alb.ingress.kubernetes.io/subnet-auto-discovery: kops-util
+
+    # Redirect all HTTP to HTTPS
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+
+    # ACM Certificate ARN for SSL
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-south-1:289857919920:certificate/b45a6953-3766-46e6-b77f-901cf0bae746(Add Your)
+    # Optional: Health check settings for ALB
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+spec:
+  ingressClassName: alb
+  rules:
+    - host: k8s.reyazclouddevops.click(Add Your)
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: insurance-service
+                port:
+                  number: 80
