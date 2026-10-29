@@ -7,7 +7,7 @@ First setup KOPS
 kubectl get nodes
 
 
-Create a Certificate in Mumbai Region --> ACM --> *.reyazclouddevops.click
+Create a Certificate in Mumbai Region --> ACM --> *.kunalcloud.shop
 
 
 
@@ -31,7 +31,7 @@ spec:
     spec:
       containers:
       - name: cont1
-        image: trainerreyaz/insurance-image:latest
+        image: kunaljadhav1625/insurance-image:latest
         ports:
           - containerPort: 80
 
@@ -78,7 +78,7 @@ kubectl apply -f application-deploy-service.yml
 
 
 
-search for a role nodes.reyaz.k8s.local  and attach admin permissions or acm
+search for a role nodes.kunal.k8s.local  and attach admin permissions or acm
 
 
 Install cert-manager (required by the controller)
@@ -108,14 +108,14 @@ Note: replace cluster name
 
 helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
   -n kube-system \
-  --set clusterName=reyaz.k8s.local \
+  --set clusterName=kunal.k8s.local \
   --set serviceAccount.create=true \
   --set hostNetwork=true
 
 kubectl get pods -n kube-system | grep aws-load-balancer
 
 
-Search for a IAM ROLE (nodes.reyaz.k8s.local ) and give admin permissions
+Search for a IAM ROLE (nodes.kunal.k8s.local ) and give admin permissions
 
 
 -------
@@ -164,14 +164,14 @@ metadata:
     alb.ingress.kubernetes.io/ssl-redirect: "443"
 
     # ACM Certificate ARN for SSL
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-south-1:289857919920:certificate/b45a6953-3766-46e6-b77f-901cf0bae746
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-south-1:289857919920:certificate/b45a6953-3766-46e6-b77f-901cf0bae746(Add Your)
     # Optional: Health check settings for ALB
     alb.ingress.kubernetes.io/healthcheck-path: /
     alb.ingress.kubernetes.io/healthcheck-port: traffic-port
 spec:
   ingressClassName: alb
   rules:
-    - host: k8s.reyazclouddevops.click
+    - host: k8s.reyazclouddevops.click(Add Your)
       http:
         paths:
           - path: /
