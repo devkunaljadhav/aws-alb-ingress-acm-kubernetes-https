@@ -1,0 +1,194 @@
+Setting up HTTPS for application with ACM in K8s
+------------------------------------------------
+
+First setup KOPS
+================
+
+kubectl get nodes
+
+
+Create a Certificate in Mumbai Region --> ACM --> *.reyazclouddevops.click
+
+
+
+vi application-deploy-service.yml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: insurance-deployment
+  labels:
+    app: bank
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: bank
+  template:
+    metadata:
+      labels:
+        app: bank
+    spec:
+      containers:
+      - name: cont1
+        image: trainerreyaz/insurance-image:latest
+        ports:
+          - containerPort: 80
+
+        # Health Probes
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 15   # Wait 15s before first check
+          periodSeconds: 10         # Check every 10s
+          failureThreshold: 3       # Restart after 3 failed checks
+
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5    # Start checking after 5s
+          periodSeconds: 5          # Check every 5s
+          failureThreshold: 2       # Mark unready after 2 failed checks
+
+        startupProbe:
+          httpGet:
+            path: /
+            port: 80
+          failureThreshold: 30      # Give app up to 30 failures
+          periodSeconds: 10         # before considering startup failed
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: insurance-service
+spec:
+  type: NodePort
+  selector:
+    app: bank
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 31433
+
+
+kubectl apply -f application-deploy-service.yml
+
+
+
+search for a role nodes.reyaz.k8s.local  and attach admin permissions or acm
+
+
+Install cert-manager (required by the controller)
+-------------------------------------------------
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.12.3/cert-manager.yaml
+kubectl rollout status deployment/cert-manager -n cert-manager
+
+
+We dont have by default load balancer controller created  in K8S, so lets install aws load balancer controller in K8S using helm
+
+Helm is a package manager
+
+Install Helm
+------------
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+chmod 700 get_helm.sh
+./get_helm.sh
+helm version
+
+
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update
+
+
+Note: replace cluster name
+------
+
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  -n kube-system \
+  --set clusterName=reyaz.k8s.local \
+  --set serviceAccount.create=true \
+  --set hostNetwork=true
+
+kubectl get pods -n kube-system | grep aws-load-balancer
+
+
+Search for a IAM ROLE (nodes.reyaz.k8s.local ) and give admin permissions
+
+
+-------
+What is an Ingress Controller in Kubernetes?
+------------------------------------------
+
+In Kubernetes, an Ingress Controller is a smart load balancer that manages HTTP and HTTPS traffic coming from outside the cluster and routes it to the appropriate services inside the cluster — based on Ingress rules. Host based routing and Path based routing
+
+Based on the path ingress controller redirect to the service in backend
+
+2 Types
+--------
+NGINX Ingress Controller → configures an Nginx proxy
+
+AWS ALB Ingress Controller → provisions an AWS Application Load Balancer
+
+We go with AWS ALB Ingress Controller for this project
+
+
+Think of Kubernetes as a gated community 🏘️:
+-------------------------------------------
+Each Pod is a house.
+Each Service is a street (it groups certain houses together).
+The Ingress Controller is the security gate + receptionist 🚪👮‍♂️ who:
+Accepts all visitors (HTTP/HTTPS requests)
+Checks who they want to meet (based on the hostname/path)
+Sends them to the correct street (service)
+
+
+
+Note: In below yml file change ACM ARN and host to some domain name
+
+vi ingress.yml
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: insurance-ingress
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: instance
+    alb.ingress.kubernetes.io/subnet-auto-discovery: kops-util
+
+    # Redirect all HTTP to HTTPS
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+
+    # ACM Certificate ARN for SSL
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-south-1:289857919920:certificate/b45a6953-3766-46e6-b77f-901cf0bae746
+    # Optional: Health check settings for ALB
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+spec:
+  ingressClassName: alb
+  rules:
+    - host: k8s.reyazclouddevops.click
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: insurance-service
+                port:
+                  number: 80
+
+
+kubectl apply -f ingress.yml
+
+kubectl get pods
+
+kubectl get ing
+
+kubectl describe ing insurance-ingress
+
+Go to Route53 and add k8s.reyazawstrainer.com  and it works with https now
